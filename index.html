@@ -96,6 +96,11 @@
   .exp-row .ess{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink2); white-space:nowrap}
   .del-btn{background:none; border:none; color:var(--muted); font-size:16px; padding:4px 8px; border-radius:6px}
   .del-btn:hover{color:var(--critical); background:var(--critical-wash)}
+  .seg{display:inline-flex; border:1px solid var(--border); border-radius:10px; overflow:hidden}
+  .seg button{padding:7px 16px; background:none; border:none; font-size:13.5px; color:var(--ink2)}
+  .seg button.on{background:var(--accent); color:#fff}
+  .seg button:not(.on):hover{color:var(--ink)}
+  .mode-row{display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-bottom:18px}
   .totals{display:flex; gap:20px; padding-top:12px; font-size:14px; color:var(--ink2); flex-wrap:wrap}
   .totals b{color:var(--ink); font-weight:650}
   .chips{display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 14px}
@@ -351,6 +356,9 @@ function freshState(){
   return {
     step:1, maxStep:1,
     fireType:'regular', currency:'INR',
+    expenseMode:'simple',      // 'simple' = one total, 'detailed' = per-category
+    expensePeriod:'monthly',   // amounts (incl. e.monthly fields) are in this period
+    simpleExpense:'', essentialShare:70,
     expenses: EXPENSE_TEMPLATE.map(t => ({ id:nid(), phKey:t.key, name:t.name, monthly:'', essential:t.essential, infCat:t.infCat })),
     goals: [],
     asm: Object.assign({ lifeExpectancy:90 }, CURRENCIES.INR.defaults),
@@ -399,6 +407,21 @@ const el = (tag, cls, text) => {
 };
 
 /* ------------------------------------------------------------------ engine glue */
+// The engine always works in per-month amounts; this normalises whichever
+// entry mode/period the user chose.
+function engineExpenses(){
+  const perMonth = v => (Number(v) || 0) / (S.expensePeriod === 'yearly' ? 12 : 1);
+  if(S.expenseMode === 'simple'){
+    const total = perMonth(S.simpleExpense);
+    const ess = Math.min(100, Math.max(0, Number(S.essentialShare) || 0)) / 100;
+    return [
+      { monthly: total * ess,       essential: true,  infCat: 'general' },
+      { monthly: total * (1 - ess), essential: false, infCat: 'general' }
+    ];
+  }
+  return S.expenses.map(e => ({ monthly: perMonth(e.monthly), essential: !!e.essential, infCat: e.infCat }));
+}
+
 function engineCfg(overrides){
   const num = v => Number(v) || 0;
   return Object.assign({
@@ -413,11 +436,11 @@ function engineCfg(overrides){
       inflation:num(S.asm.inflation), eduInflation:num(S.asm.eduInflation), healthInflation:num(S.asm.healthInflation),
       preReturn:num(S.asm.preReturn), postReturn:num(S.asm.postReturn), swr:num(S.asm.swr), stepUp:num(S.asm.stepUp)
     },
-    expenses: S.expenses.map(e => ({ monthly:num(e.monthly), essential:!!e.essential, infCat:e.infCat })),
+    expenses: engineExpenses(),
     goals: S.goals.map(g => ({ name:g.name, cost:num(g.cost), atAge:num(g.atAge), years:num(g.years)||1, infCat:g.infCat }))
   }, overrides || {});
 }
-const monthlyExpenseTotal = () => S.expenses.reduce((t,e) => t + (Number(e.monthly)||0), 0);
+const monthlyExpenseTotal = () => engineExpenses().reduce((t,e) => t + e.monthly, 0);
 
 /* ------------------------------------------------------------------ shell */
 const $main = document.getElementById('main');
@@ -508,56 +531,104 @@ function step1(){
 }
 
 /* ------------------------------------------------------------------ step 2: expenses */
+function seg(options, value, onChange){
+  const w = el('div','seg');
+  options.forEach(([v, l]) => {
+    const b = el('button', v === value ? 'on' : null, l);
+    b.type = 'button';
+    b.addEventListener('click', () => { if(v !== value) onChange(v); });
+    w.append(b);
+  });
+  return w;
+}
+
+function setExpensePeriod(p){
+  if(p === S.expensePeriod) return;
+  const f = p === 'yearly' ? 12 : 1/12;
+  const conv = v => (v === '' || v == null) ? v : Math.round((Number(v) || 0) * f);
+  S.expenses.forEach(e => { e.monthly = conv(e.monthly); });
+  S.simpleExpense = conv(S.simpleExpense);
+  S.expensePeriod = p;
+  save(); render();
+}
+
 function step2(){
+  const yearly = S.expensePeriod === 'yearly';
+  const perF = yearly ? 12 : 1;
   const ph = CURRENCIES[S.currency].placeholders;
   const sym = CURRENCIES[S.currency].symbol;
+  const perLabel = yearly ? ' / year' : ' / month';
 
   const card = el('section','card');
   card.append(el('h2',null,'What does your life cost today?'),
-    el('p','lead','Everything in today’s money — the calculator does the inflating. Mark what’s essential: ' +
-      'Lean FIRE halves your discretionary spending in retirement, Fat FIRE gives it a 1.5× cushion.'));
+    el('p','lead','Everything in today’s money — the calculator does the inflating. One number is enough; break it down only if you want per-category inflation and finer Lean/Fat control.'));
 
-  const list = el('div');
-  const head = el('div','exp-row exp-head');
-  head.append(el('span',null,'Expense'), el('span',null,sym + ' / month'), el('span',null,'Essential'), el('span',null,'Inflates at'), el('span',null,''));
-  list.append(head);
-
-  S.expenses.forEach(e => {
-    const row = el('div','exp-row');
-    const name = el('input'); name.type = 'text'; name.value = e.name; name.setAttribute('aria-label','Expense name');
-    name.addEventListener('input', () => { e.name = name.value; save(); });
-    const amt = el('input'); amt.type = 'number'; amt.min = '0'; amt.value = e.monthly;
-    amt.placeholder = e.phKey && ph[e.phKey] ? 'e.g. ' + ph[e.phKey] : '0';
-    amt.setAttribute('aria-label','Monthly amount');
-    amt.addEventListener('input', () => { e.monthly = amt.value; totals.replaceChildren(...totalNodes()); save(); });
-    const ess = el('label','ess');
-    const chk = el('input'); chk.type = 'checkbox'; chk.checked = !!e.essential;
-    chk.addEventListener('change', () => { e.essential = chk.checked; save(); });
-    ess.append(chk, el('span',null,'essential'));
-    const inf = infSelect(e.infCat, v => { e.infCat = v; save(); });
-    const del = el('button','del-btn','✕'); del.type='button'; del.title = 'Remove';
-    del.addEventListener('click', () => { S.expenses = S.expenses.filter(x => x !== e); save(); render(); });
-    row.append(name, amt, ess, inf, del);
-    list.append(row);
-  });
-  card.append(list);
-
-  const addBtn = el('button','ghost-btn','+ Add another expense');
-  addBtn.type='button'; addBtn.style.marginTop = '12px';
-  addBtn.addEventListener('click', () => {
-    S.expenses.push({ id:nid(), phKey:null, name:'', monthly:'', essential:false, infCat:'general' });
-    save(); render();
-  });
-  card.append(addBtn);
+  const modeRow = el('div','mode-row');
+  modeRow.append(
+    seg([['simple','One number'],['detailed','Break it down']], S.expenseMode, v => { S.expenseMode = v; save(); render(); }),
+    seg([['monthly','per month'],['yearly','per year']], S.expensePeriod, setExpensePeriod)
+  );
+  card.append(modeRow);
 
   const totalNodes = () => {
     const m = monthlyExpenseTotal();
     return [
-      el('span',null,'Monthly total: '), el('b',null,fmtMoney(m, {full:m < 1e5})),
-      el('span',null,'· Annual: '), el('b',null,fmtMoney(m*12))
+      el('span',null,'Monthly: '), el('b',null,fmtMoney(m, {full:m < 1e5})),
+      el('span',null,'· Yearly: '), el('b',null,fmtMoney(m*12))
     ];
   };
   const totals = el('div','totals');
+
+  if(S.expenseMode === 'simple'){
+    const row = el('div','row');
+    const totLbl = el('label','fld','Total spending (' + sym + perLabel + ', today’s money)');
+    const tot = el('input'); tot.type='number'; tot.min='0'; tot.value = S.simpleExpense;
+    tot.placeholder = 'e.g. ' + (ph.housing + ph.groceries + ph.utilities + ph.transport + ph.healthcare + ph.dining + ph.travel + ph.misc) * perF;
+    tot.addEventListener('input', () => { S.simpleExpense = tot.value; totals.replaceChildren(...totalNodes()); save(); });
+    totLbl.append(tot);
+    const essLbl = el('label','fld','Roughly what share of it is essential? (%)');
+    const ess = el('input'); ess.type='number'; ess.min='0'; ess.max='100'; ess.step='5'; ess.value = S.essentialShare;
+    ess.addEventListener('input', () => { S.essentialShare = ess.value; save(); });
+    essLbl.append(ess);
+    row.append(totLbl, essLbl);
+    card.append(row);
+    card.append(el('p','hint','The essential share only matters for Lean/Fat FIRE — essentials are never scaled, discretionary is. In this mode everything inflates at general inflation; use “Break it down” if healthcare or education is a big slice of your spending.'));
+  } else {
+    const list = el('div');
+    const head = el('div','exp-row exp-head');
+    head.append(el('span',null,'Expense'), el('span',null,sym + perLabel), el('span',null,'Essential'), el('span',null,'Inflates at'), el('span',null,''));
+    list.append(head);
+
+    S.expenses.forEach(e => {
+      const row = el('div','exp-row');
+      const name = el('input'); name.type = 'text'; name.value = e.name; name.setAttribute('aria-label','Expense name');
+      name.addEventListener('input', () => { e.name = name.value; save(); });
+      const amt = el('input'); amt.type = 'number'; amt.min = '0'; amt.value = e.monthly;
+      amt.placeholder = e.phKey && ph[e.phKey] ? 'e.g. ' + ph[e.phKey] * perF : '0';
+      amt.setAttribute('aria-label','Amount' + perLabel);
+      amt.addEventListener('input', () => { e.monthly = amt.value; totals.replaceChildren(...totalNodes()); save(); });
+      const ess = el('label','ess');
+      const chk = el('input'); chk.type = 'checkbox'; chk.checked = !!e.essential;
+      chk.addEventListener('change', () => { e.essential = chk.checked; save(); });
+      ess.append(chk, el('span',null,'essential'));
+      const inf = infSelect(e.infCat, v => { e.infCat = v; save(); });
+      const del = el('button','del-btn','✕'); del.type='button'; del.title = 'Remove';
+      del.addEventListener('click', () => { S.expenses = S.expenses.filter(x => x !== e); save(); render(); });
+      row.append(name, amt, ess, inf, del);
+      list.append(row);
+    });
+    card.append(list);
+
+    const addBtn = el('button','ghost-btn','+ Add another expense');
+    addBtn.type='button'; addBtn.style.marginTop = '12px';
+    addBtn.addEventListener('click', () => {
+      S.expenses.push({ id:nid(), phKey:null, name:'', monthly:'', essential:false, infCat:'general' });
+      save(); render();
+    });
+    card.append(addBtn);
+    card.append(el('p','hint','Mark what’s essential: Lean FIRE halves discretionary spending in retirement, Fat FIRE gives it a 1.5× cushion.'));
+  }
+
   totals.append(...totalNodes());
   card.append(totals);
   $main.append(card);
@@ -610,7 +681,9 @@ function step2(){
     gcard.append(el('p','hint','None yet — add the ones that apply. You can also skip this entirely.'));
   }
 
-  const err = el('p','err','Enter at least one monthly expense — the whole plan hangs off what your life costs.');
+  const err = el('p','err', S.expenseMode === 'simple'
+    ? 'Enter your total spending — the whole plan hangs off what your life costs.'
+    : 'Enter at least one expense — the whole plan hangs off what your life costs.');
   gcard.append(err);
   gcard.append(actionsBar(1, 'Next: check the assumptions →', () => {
     if(monthlyExpenseTotal() <= 0){ err.classList.add('show'); return; }
@@ -865,16 +938,21 @@ function buildMethodology(plan){
   const cur = CURRENCIES[S.currency];
   const p = (strongText, rest) => { const q = el('p'); q.append(el('b',null,strongText), document.createTextNode(' ' + rest)); return q; };
   const dm = FireEngine.DISCRETIONARY_MULT[S.fireType];
-  const essential = S.expenses.filter(e => e.essential).reduce((t,e) => t + (Number(e.monthly)||0), 0);
-  const disc = monthlyExpenseTotal() - essential;
+  const exps = engineExpenses();
+  const essential = exps.filter(e => e.essential).reduce((t,e) => t + e.monthly, 0);
+  const disc = exps.filter(e => !e.essential).reduce((t,e) => t + e.monthly, 0);
+  const src = S.expenseMode === 'simple'
+    ? ' (from your single total, treating ' + (Number(S.essentialShare)||0) + '% as essential)'
+    : '';
 
-  p1: {
-    box.append(p('1 · Your spending.', 'Today you spend ' + fmtMoney(monthlyExpenseTotal(), {full:true}) + '/month — ' +
-      fmtMoney(essential, {full:true}) + ' essential + ' + fmtMoney(disc, {full:true}) + ' discretionary' +
-      (dm !== 1 ? ('. As ' + S.fireType + ' FIRE, discretionary is scaled ×' + dm + ' in retirement, giving ' + fmtMoney(plan.annualExpenseToday) + '/yr in today’s money.') :
-        (', i.e. ' + fmtMoney(plan.annualExpenseToday) + '/yr.'))));
-  }
-  box.append(p('2 · Inflation.', 'Each category grows at its own rate — general ' + S.asm.inflation + '%, healthcare ' + S.asm.healthInflation + '%, education ' + S.asm.eduInflation + '% per year. By age ' + plan.retireAge + ' (' + (THIS_YEAR + plan.retireAge - you.currentAge) + '), your spending becomes ' + fmtMoney(plan.annualExpenseAtRetire) + '/yr.'));
+  box.append(p('1 · Your spending.', 'Today you spend ' + fmtMoney(monthlyExpenseTotal(), {full:true}) + '/month — ' +
+    fmtMoney(essential, {full:true}) + ' essential + ' + fmtMoney(disc, {full:true}) + ' discretionary' + src +
+    (dm !== 1 ? ('. As ' + S.fireType + ' FIRE, discretionary is scaled ×' + dm + ' in retirement, giving ' + fmtMoney(plan.annualExpenseToday) + '/yr in today’s money.') :
+      (', i.e. ' + fmtMoney(plan.annualExpenseToday) + '/yr.'))));
+  box.append(p('2 · Inflation.', (S.expenseMode === 'simple'
+    ? 'Your spending grows at general inflation, ' + S.asm.inflation + '% per year (goals can still use education/healthcare rates below).'
+    : 'Each category grows at its own rate — general ' + S.asm.inflation + '%, healthcare ' + S.asm.healthInflation + '%, education ' + S.asm.eduInflation + '% per year.') +
+    ' By age ' + plan.retireAge + ' (' + (THIS_YEAR + plan.retireAge - you.currentAge) + '), your spending becomes ' + fmtMoney(plan.annualExpenseAtRetire) + '/yr.'));
   if(S.goals.length){
     const ul = el('ul');
     S.goals.forEach(g => {
@@ -1067,6 +1145,7 @@ document.getElementById('exampleBtn').addEventListener('click', loadExample);
 function loadExample(){
   S = freshState();
   S.fireType = 'regular'; S.currency = 'INR';
+  S.expenseMode = 'detailed'; S.expensePeriod = 'monthly';
   const ph = CURRENCIES.INR.placeholders;
   S.expenses.forEach(e => { if(e.phKey) e.monthly = ph[e.phKey]; });
   S.goals = [
@@ -1095,13 +1174,10 @@ try{ applyTheme(localStorage.getItem('firecalc-theme')); }catch(e){}
 /* ------------------------------------------------------------------ boot */
 load();
 const params = new URLSearchParams(location.search);
-if(params.get('example') === '1'){
-  loadExample();
-  const jump = Number(params.get('step'));
-  if(jump >= 1 && jump <= 5 && jump !== S.step){ S.step = jump; render(); }
-} else {
-  render();
-}
+if(params.get('example') === '1') loadExample();
+const jump = Number(params.get('step'));
+if(jump >= 1 && jump <= 5){ S.maxStep = Math.max(S.maxStep, jump); S.step = jump; }
+render();
 </script>
 </body>
 </html>

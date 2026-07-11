@@ -14,10 +14,12 @@ A five-step guided flow:
    in retirement), Fat (1.5× cushion), Coast (front-load investing, then let
    compounding finish the job), or Barista (part-time income covers part of the
    bill). Plus your currency (₹ / $ / € / £).
-2. **List your expenses** — monthly costs in today's money, each marked
-   essential/discretionary and tied to its own inflation rate (general,
-   healthcare, or education), plus big one-time goals (house down payment,
-   kids' education, weddings…) with the age they happen and today's cost.
+2. **List your expenses** — either a single total (monthly or yearly, with a
+   rough essential share) or an optional per-category breakdown where each
+   item is marked essential/discretionary and tied to its own inflation rate
+   (general, healthcare, or education). Plus big one-time goals (house down
+   payment, kids' education, weddings…) with the age they happen and today's
+   cost.
 3. **Check the assumptions** — every estimate (inflation rates, portfolio
    returns before/after FIRE, safe withdrawal rate, plan-until age, annual
    investment step-up) is shown with its default, the reasoning behind it, and
