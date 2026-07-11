@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIRE Calculator — plan your financial independence</title>
+<meta name="description" content="A transparent FIRE (Financial Independence, Retire Early) calculator: pick your flavour of FIRE, list your expenses and life goals, review every assumption, and see exactly how much to invest each month.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+<style>
+  :root{
+    --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+    --series:#2a78d6; --series-soft:rgba(42,120,214,.10); --accent:#2a78d6;
+    --good:#0ca30c; --good-text:#006300; --serious:#ec835a; --critical:#d03b3b;
+    --good-wash:rgba(12,163,12,.08); --serious-wash:rgba(236,131,90,.12); --critical-wash:rgba(208,59,59,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+      --series:#3987e5; --series-soft:rgba(57,135,229,.14); --accent:#3987e5;
+      --good-text:#0ca30c;
+    }
+  }
+  :root[data-theme="light"]{
+    --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+    --series:#2a78d6; --series-soft:rgba(42,120,214,.10); --accent:#2a78d6; --good-text:#006300;
+  }
+  :root[data-theme="dark"]{
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --series:#3987e5; --series-soft:rgba(57,135,229,.14); --accent:#3987e5; --good-text:#0ca30c;
+  }
+  *{box-sizing:border-box; margin:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--page); color:var(--ink);
+    font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding-bottom:56px;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 20px}
+  a{color:var(--accent)}
+  header.app{display:flex; align-items:center; gap:12px; padding:26px 0 6px}
+  header.app h1{font-size:22px; font-weight:650; letter-spacing:-.01em}
+  header.app .sub{color:var(--ink2); font-size:14px}
+  header.app .spacer{flex:1}
+  button{font:inherit; color:inherit; cursor:pointer}
+  .ghost-btn{background:none; border:1px solid var(--border); border-radius:8px; padding:6px 12px; font-size:13.5px; color:var(--ink2)}
+  .ghost-btn:hover{border-color:var(--axis); color:var(--ink)}
+
+  nav.steps{display:flex; gap:6px; flex-wrap:wrap; margin:18px 0 22px}
+  nav.steps button{
+    border:1px solid var(--border); background:var(--surface); border-radius:999px;
+    padding:7px 14px; font-size:13.5px; color:var(--muted); display:flex; gap:7px; align-items:center;
+  }
+  nav.steps button .n{
+    width:19px; height:19px; border-radius:50%; background:var(--grid); color:var(--ink2);
+    font-size:11.5px; font-weight:650; display:inline-flex; align-items:center; justify-content:center;
+  }
+  nav.steps button.done{color:var(--ink2)}
+  nav.steps button.done .n{background:var(--good-wash); color:var(--good-text)}
+  nav.steps button.active{border-color:var(--accent); color:var(--ink)}
+  nav.steps button.active .n{background:var(--accent); color:#fff}
+  nav.steps button:disabled{cursor:default; opacity:.55}
+
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; margin-bottom:16px}
+  .card h2{font-size:18px; font-weight:650; margin-bottom:4px}
+  .card .lead{color:var(--ink2); font-size:14.5px; margin-bottom:16px}
+  .hint{color:var(--muted); font-size:13px}
+
+  .type-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px}
+  .type-card{
+    border:1.5px solid var(--border); border-radius:12px; padding:14px 16px; background:none;
+    text-align:left; display:block;
+  }
+  .type-card:hover{border-color:var(--axis)}
+  .type-card.sel{border-color:var(--accent); background:var(--series-soft)}
+  .type-card .t{font-weight:650; font-size:15px; display:flex; align-items:center; gap:8px}
+  .type-card .d{color:var(--ink2); font-size:13.5px; margin-top:4px}
+  .type-card .tag{font-size:11px; font-weight:650; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:1px 8px}
+
+  label.fld{display:block; font-size:13.5px; color:var(--ink2); font-weight:550}
+  input[type=number], input[type=text], select{
+    font:inherit; color:var(--ink); background:var(--page); border:1px solid var(--border);
+    border-radius:8px; padding:8px 10px; width:100%; margin-top:4px;
+  }
+  input:focus-visible, select:focus-visible, button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+  .row{display:flex; gap:14px; flex-wrap:wrap}
+  .row > *{flex:1; min-width:150px}
+
+  .exp-row{display:grid; grid-template-columns:minmax(160px,2.2fr) minmax(110px,1fr) auto minmax(120px,1fr) auto; gap:8px; align-items:center; padding:7px 0; border-bottom:1px solid var(--grid)}
+  .exp-row:last-of-type{border-bottom:none}
+  .exp-row input, .exp-row select{margin-top:0}
+  .exp-head{color:var(--muted); font-size:12px; font-weight:650; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--axis)}
+  .exp-row .ess{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink2); white-space:nowrap}
+  .del-btn{background:none; border:none; color:var(--muted); font-size:16px; padding:4px 8px; border-radius:6px}
+  .del-btn:hover{color:var(--critical); background:var(--critical-wash)}
+  .seg{display:inline-flex; border:1px solid var(--border); border-radius:10px; overflow:hidden}
+  .seg button{padding:7px 16px; background:none; border:none; font-size:13.5px; color:var(--ink2)}
+  .seg button.on{background:var(--accent); color:#fff}
+  .seg button:not(.on):hover{color:var(--ink)}
+  .mode-row{display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-bottom:18px}
+  .totals{display:flex; gap:20px; padding-top:12px; font-size:14px; color:var(--ink2); flex-wrap:wrap}
+  .totals b{color:var(--ink); font-weight:650}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 14px}
+  .chips button{border:1px dashed var(--axis); background:none; border-radius:999px; padding:5px 12px; font-size:13px; color:var(--ink2)}
+  .chips button:hover{border-color:var(--accent); color:var(--accent)}
+
+  .goal-row{display:grid; grid-template-columns:minmax(150px,2fr) minmax(100px,1fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(110px,1fr) auto; gap:8px; align-items:center; padding:7px 0; border-bottom:1px solid var(--grid)}
+  .goal-row:last-of-type{border-bottom:none}
+  .goal-row input, .goal-row select{margin-top:0}
+
+  .asm-row{display:grid; grid-template-columns:minmax(180px,1.4fr) 110px minmax(220px,3fr) auto; gap:12px; align-items:start; padding:12px 0; border-bottom:1px solid var(--grid)}
+  .asm-row:last-of-type{border-bottom:none}
+  .asm-row .lbl{font-weight:600; font-size:14.5px; padding-top:8px}
+  .asm-row .why{color:var(--ink2); font-size:13px; padding-top:8px}
+  .asm-row .why .def{color:var(--muted)}
+  .asm-row input{margin-top:0}
+  .reset-one{background:none; border:none; color:var(--accent); font-size:12.5px; padding:8px 2px; visibility:hidden}
+  .asm-row.touched .reset-one{visibility:visible}
+  .asm-row.touched input{border-color:var(--accent)}
+
+  .actions{display:flex; justify-content:space-between; gap:12px; margin-top:6px}
+  .primary-btn{
+    background:var(--accent); color:#fff; border:none; border-radius:10px;
+    padding:11px 26px; font-size:15px; font-weight:600;
+  }
+  .primary-btn:hover{filter:brightness(1.07)}
+  .back-btn{background:none; border:1px solid var(--border); border-radius:10px; padding:11px 20px; font-size:15px; color:var(--ink2)}
+  .err{color:var(--critical); font-size:13.5px; margin-top:10px; display:none}
+  .err.show{display:block}
+
+  /* Results */
+  .hero-card{text-align:left}
+  .hero-label{font-size:14px; color:var(--ink2)}
+  .hero-num{font-size:52px; font-weight:650; letter-spacing:-.02em; line-height:1.1; margin:2px 0}
+  .hero-sub{color:var(--ink2); font-size:14.5px}
+  .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin-bottom:16px}
+  .tile{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px}
+  .tile .l{font-size:12.5px; color:var(--muted)}
+  .tile .v{font-size:22px; font-weight:650; margin-top:2px}
+  .tile .s{font-size:12.5px; color:var(--ink2); margin-top:2px}
+  .verdict{border-radius:12px; padding:14px 18px; margin-bottom:16px; font-size:14.5px; display:flex; gap:10px; align-items:baseline}
+  .verdict .ic{font-weight:700}
+  .verdict.good{background:var(--good-wash); color:var(--good-text)}
+  .verdict.bad{background:var(--serious-wash); color:var(--ink)}
+  .verdict.bad .ic{color:var(--critical)}
+
+  .chart-card{padding:18px 18px 10px}
+  .chart-card h3{font-size:15.5px; font-weight:650}
+  .chart-card .csub{color:var(--ink2); font-size:13px; margin-bottom:8px}
+  .chart-box{position:relative}
+  .chart-box svg{display:block; width:100%; height:auto}
+  .chart-box:focus-visible{outline:2px solid var(--accent); border-radius:8px}
+  .tip{
+    position:absolute; pointer-events:none; background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:9px 12px; font-size:12.5px; box-shadow:0 4px 14px rgba(0,0,0,.13);
+    display:none; min-width:150px; z-index:3;
+  }
+  .tip .tv{font-size:16px; font-weight:650}
+  .tip .tl{color:var(--muted)}
+  .tip .tr{display:flex; justify-content:space-between; gap:14px; color:var(--ink2)}
+  .tip .tr b{color:var(--ink); font-weight:600}
+
+  details.panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:0; margin-bottom:12px}
+  details.panel summary{cursor:pointer; font-weight:600; font-size:14.5px; padding:14px 18px; list-style-position:inside}
+  details.panel > div{padding:0 18px 16px}
+  table.yr{width:100%; border-collapse:collapse; font-size:13px}
+  table.yr th{color:var(--muted); font-weight:600; text-align:right; padding:6px 8px; border-bottom:1px solid var(--axis); white-space:nowrap}
+  table.yr td{text-align:right; padding:5px 8px; border-bottom:1px solid var(--grid); font-variant-numeric:tabular-nums; white-space:nowrap}
+  table.yr th:first-child, table.yr td:first-child{text-align:left}
+  .tbl-scroll{overflow-x:auto}
+  .meth p{font-size:14px; color:var(--ink2); margin:8px 0}
+  .meth b{color:var(--ink)}
+  .meth ul{padding-left:20px; font-size:14px; color:var(--ink2)}
+  .meth li{margin:5px 0}
+  footer{color:var(--muted); font-size:12.5px; margin-top:26px; line-height:1.6}
+  .pill{font-size:11.5px; border:1px solid var(--border); border-radius:999px; padding:1px 8px; color:var(--muted)}
+  @media (max-width:640px){
+    .exp-row{grid-template-columns:1.6fr 1fr auto; }
+    .exp-row select{grid-column:1/3}
+    .goal-row{grid-template-columns:1.4fr 1fr auto; }
+    .goal-row select, .goal-row .ga, .goal-row .gy{grid-column:auto}
+    .asm-row{grid-template-columns:1fr 110px auto}
+    .asm-row .why{grid-column:1/4; padding-top:2px}
+    .hero-num{font-size:38px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <div>
+      <h1>🔥 FIRE Calculator</h1>
+      <div class="sub">Financial Independence, Retire Early — with every assumption on the table.</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="ghost-btn" id="exampleBtn" type="button">Try an example</button>
+    <button class="ghost-btn" id="resetBtn" type="button">Start over</button>
+    <button class="ghost-btn" id="themeBtn" type="button" aria-label="Toggle dark mode">◐</button>
+  </header>
+
+  <nav class="steps" id="stepsNav" aria-label="Steps"></nav>
+
+  <main id="main"></main>
+
+  <footer>
+    <b>Honesty box:</b> this is an educational planning tool, not financial advice. Returns are modelled as
+    smooth annual averages — real markets crash and recover, and the order of good and bad years matters
+    (sequence-of-returns risk). Taxes, fees and emergencies are not modelled; treat the result as a
+    starting point and keep a separate emergency fund. All assumptions are editable in step 3.
+  </footer>
+</div>
+
+<script src="engine.js"></script>
+<script>
+'use strict';
+/* ------------------------------------------------------------------ data */
+const CURRENCIES = {
+  INR: {
+    symbol:'₹', label:'₹ Indian rupee',
+    defaults:{ inflation:6.0, eduInflation:9.0, healthInflation:9.0, preReturn:11.0, postReturn:8.0, swr:3.5, stepUp:5.0 },
+    why:{
+      inflation:"India's CPI has averaged roughly 5–6% over the last decade and the RBI targets 4% ± 2%. Long horizons punish optimism, so we lean slightly high.",
+      eduInflation:"Education costs in India have historically risen ~8–10% a year — roughly 1.5× general inflation.",
+      healthInflation:"Medical inflation in India runs ~8–10% a year in insurer and industry studies.",
+      preReturn:"The Nifty 50 (total returns) has averaged ~11–12% a year over the long run. Assumes an equity-heavy portfolio while you accumulate.",
+      postReturn:"Assumes you move to a safer ~50–60% equity mix after retiring, blending equity and debt returns.",
+      swr:"The famous 4% rule comes from US market history (the Trinity study). With India's higher inflation, planners commonly use 3–3.5%. We use it only as a cross-check — the headline number simulates every year of your plan instead.",
+      stepUp:"Salaries usually grow. Committing to raise your monthly investment each year lowers what you must start with today."
+    },
+    placeholders:{ housing:25000, groceries:15000, utilities:5000, transport:6000, healthcare:4000, dining:8000, travel:8000, misc:5000 },
+    goalPresets:[
+      { name:'Home down payment', cost:3000000, inYears:5,  years:1, infCat:'general' },
+      { name:'Car',               cost:1200000, inYears:4,  years:1, infCat:'general' },
+      { name:"Child's higher education", cost:5000000, inYears:15, years:4, infCat:'education' },
+      { name:"Child's wedding",   cost:2500000, inYears:22, years:1, infCat:'general' },
+      { name:'Dream trip',        cost:600000,  inYears:3,  years:1, infCat:'general' }
+    ],
+    baristaPlaceholder:30000
+  },
+  USD: {
+    symbol:'$', label:'$ US dollar',
+    defaults:{ inflation:3.0, eduInflation:5.0, healthInflation:5.5, preReturn:8.0, postReturn:5.5, swr:4.0, stepUp:3.0 },
+    why:{
+      inflation:"US CPI has averaged ~2.5–3% over the long run; the Fed targets 2%. Planning a notch above target is the conservative choice.",
+      eduInflation:"US college costs have historically outpaced CPI, rising ~5%+ a year.",
+      healthInflation:"US medical costs have grown faster than CPI for decades — ~5–6% a year is a common planning figure.",
+      preReturn:"The S&P 500 has returned ~9–10% a year nominal over the long run; 8% assumes a diversified, slightly conservative mix.",
+      postReturn:"Assumes a safer ~50–60% equity mix after retiring.",
+      swr:"The 4% rule (Trinity study, 30-year retirements). For very early retirement many use 3.25–3.5%. Used only as a cross-check — the headline number simulates every year of your plan.",
+      stepUp:"Salaries usually grow. Raising your contribution each year lowers what you must start with today."
+    },
+    placeholders:{ housing:1800, groceries:600, utilities:250, transport:400, healthcare:500, dining:400, travel:400, misc:300 },
+    goalPresets:[
+      { name:'Home down payment', cost:60000,  inYears:5,  years:1, infCat:'general' },
+      { name:'Car',               cost:35000,  inYears:4,  years:1, infCat:'general' },
+      { name:"Child's college",   cost:120000, inYears:15, years:4, infCat:'education' },
+      { name:'Wedding',           cost:30000,  inYears:8,  years:1, infCat:'general' },
+      { name:'Dream trip',        cost:15000,  inYears:3,  years:1, infCat:'general' }
+    ],
+    baristaPlaceholder:1500
+  },
+  EUR: {
+    symbol:'€', label:'€ Euro',
+    defaults:{ inflation:2.5, eduInflation:4.0, healthInflation:4.5, preReturn:6.5, postReturn:4.5, swr:3.5, stepUp:3.0 },
+    why:{
+      inflation:"Euro-area inflation has averaged ~2% with recent spikes; the ECB targets 2%. We plan a notch above.",
+      eduInflation:"Education costs typically outpace CPI; ~4% is a reasonable planning figure for Europe.",
+      healthInflation:"Healthcare costs typically outpace CPI; ~4–5% is a common planning figure.",
+      preReturn:"Broad European / global equity has returned ~6–8% nominal long-run; 6.5% assumes a diversified mix.",
+      postReturn:"Assumes a safer mix after retiring.",
+      swr:"The 4% rule is US-derived; European studies suggest 3–3.5% is safer for long retirements. Cross-check only.",
+      stepUp:"Raising your contribution each year lowers what you must start with today."
+    },
+    placeholders:{ housing:1200, groceries:450, utilities:220, transport:250, healthcare:300, dining:300, travel:300, misc:250 },
+    goalPresets:[
+      { name:'Home down payment', cost:50000, inYears:5,  years:1, infCat:'general' },
+      { name:'Car',               cost:30000, inYears:4,  years:1, infCat:'general' },
+      { name:"Child's education", cost:60000, inYears:15, years:4, infCat:'education' },
+      { name:'Wedding',           cost:25000, inYears:8,  years:1, infCat:'general' },
+      { name:'Dream trip',        cost:12000, inYears:3,  years:1, infCat:'general' }
+    ],
+    baristaPlaceholder:1200
+  },
+  GBP: {
+    symbol:'£', label:'£ British pound',
+    defaults:{ inflation:3.0, eduInflation:4.5, healthInflation:5.0, preReturn:7.0, postReturn:5.0, swr:3.5, stepUp:3.0 },
+    why:{
+      inflation:"UK CPI has averaged ~2–3% long-run with recent spikes; the BoE targets 2%. We plan a notch above.",
+      eduInflation:"Education costs typically outpace CPI; ~4–5% is a reasonable UK planning figure.",
+      healthInflation:"Private healthcare costs typically outpace CPI; ~5% is a common planning figure.",
+      preReturn:"Global equity in GBP has returned ~7–8% nominal long-run; assumes a diversified equity-heavy mix.",
+      postReturn:"Assumes a safer mix after retiring.",
+      swr:"The 4% rule is US-derived; UK studies suggest 3–3.5% for long retirements. Cross-check only.",
+      stepUp:"Raising your contribution each year lowers what you must start with today."
+    },
+    placeholders:{ housing:1300, groceries:450, utilities:250, transport:300, healthcare:250, dining:300, travel:300, misc:250 },
+    goalPresets:[
+      { name:'Home down payment', cost:45000, inYears:5,  years:1, infCat:'general' },
+      { name:'Car',               cost:28000, inYears:4,  years:1, infCat:'general' },
+      { name:"Child's education", cost:80000, inYears:15, years:4, infCat:'education' },
+      { name:'Wedding',           cost:22000, inYears:8,  years:1, infCat:'general' },
+      { name:'Dream trip',        cost:10000, inYears:3,  years:1, infCat:'general' }
+    ],
+    baristaPlaceholder:1100
+  }
+};
+
+const FIRE_TYPES = [
+  { id:'regular', name:'Regular FIRE', emoji:'🔥', tag:'the classic',
+    desc:'Retire fully and keep your current lifestyle. Your investments cover 100% of your spending, for life.' },
+  { id:'lean',    name:'Lean FIRE', emoji:'🌱', tag:'frugal',
+    desc:'Retire earlier by living lean: essentials stay as they are, discretionary spending is halved in retirement.' },
+  { id:'fat',     name:'Fat FIRE', emoji:'👑', tag:'comfortable',
+    desc:'Retire with headroom: essentials stay as they are, discretionary spending gets a 1.5× cushion in retirement.' },
+  { id:'coast',   name:'Coast FIRE', emoji:'⛵', tag:'front-load it',
+    desc:'Invest hard now, then stop. Work covers your bills while compounding finishes the job by traditional retirement age.' },
+  { id:'barista', name:'Barista FIRE', emoji:'☕', tag:'semi-retire',
+    desc:'Quit the career, keep a chill part-time job. Its income covers part of your spending; the portfolio covers the rest.' }
+];
+
+const EXPENSE_TEMPLATE = [
+  { key:'housing',    name:'Housing — rent / maintenance', essential:true,  infCat:'general' },
+  { key:'groceries',  name:'Groceries & household',        essential:true,  infCat:'general' },
+  { key:'utilities',  name:'Utilities, phone & internet',  essential:true,  infCat:'general' },
+  { key:'transport',  name:'Transport / fuel',             essential:true,  infCat:'general' },
+  { key:'healthcare', name:'Healthcare & insurance',       essential:true,  infCat:'healthcare' },
+  { key:'dining',     name:'Dining out & entertainment',   essential:false, infCat:'general' },
+  { key:'travel',     name:'Travel & holidays (monthly avg)', essential:false, infCat:'general' },
+  { key:'misc',       name:'Shopping & everything else',   essential:false, infCat:'general' }
+];
+
+const ASSUMPTION_FIELDS = [
+  { key:'inflation',       label:'General inflation',            unit:'% / yr', min:0, max:20,  step:0.1 },
+  { key:'eduInflation',    label:'Education inflation',          unit:'% / yr', min:0, max:20,  step:0.1 },
+  { key:'healthInflation', label:'Healthcare inflation',         unit:'% / yr', min:0, max:20,  step:0.1 },
+  { key:'preReturn',       label:'Portfolio return before FIRE', unit:'% / yr', min:0, max:25,  step:0.1 },
+  { key:'postReturn',      label:'Portfolio return after FIRE',  unit:'% / yr', min:0, max:25,  step:0.1 },
+  { key:'stepUp',          label:'Annual investment step-up',    unit:'% / yr', min:0, max:25,  step:0.5 },
+  { key:'swr',             label:'Safe withdrawal rate',         unit:'%',      min:1, max:10,  step:0.05 },
+  { key:'lifeExpectancy',  label:'Plan until age',               unit:'',       min:60, max:110, step:1, global:true, def:90,
+    why:"Running out of money at 85 is far worse than leaving some behind. Planning to ~90 covers most longevity risk." }
+];
+
+const STEPS = ['Your FIRE', 'Expenses', 'Assumptions', 'Timeline', 'Your plan'];
+const STORE_KEY = 'firecalc-v1';
+const THIS_YEAR = new Date().getFullYear();
+
+/* ------------------------------------------------------------------ state */
+let uid = 1;
+const nid = () => 'x' + (uid++);
+
+function freshState(){
+  return {
+    step:1, maxStep:1,
+    fireType:'regular', currency:'INR',
+    expenseMode:'simple',      // 'simple' = one total, 'detailed' = per-category
+    expensePeriod:'monthly',   // amounts (incl. e.monthly fields) are in this period
+    simpleExpense:'', essentialShare:70,
+    expenses: EXPENSE_TEMPLATE.map(t => ({ id:nid(), phKey:t.key, name:t.name, monthly:'', essential:t.essential, infCat:t.infCat })),
+    goals: [],
+    asm: Object.assign({ lifeExpectancy:90 }, CURRENCIES.INR.defaults),
+    touched: {},
+    you: { currentAge:30, fireAge:45, corpus:'', plannedSip:'', coastRetAge:60, baristaUntil:60, baristaIncome:'' }
+  };
+}
+let S = freshState();
+
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(S)); }catch(e){} }
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(s && s.expenses && s.asm && s.you) { S = Object.assign(freshState(), s); }
+  }catch(e){}
+}
+
+/* ------------------------------------------------------------------ format */
+function trimNum(x){ return x >= 100 ? Math.round(x).toString() : x >= 10 ? x.toFixed(1) : x.toFixed(2); }
+function fmtMoney(v, opts){
+  opts = opts || {};
+  const cur = CURRENCIES[S.currency], sym = cur.symbol;
+  if(!isFinite(v)) return '—';
+  const sign = v < 0 ? '−' : '';
+  v = Math.abs(v);
+  if(!opts.full){
+    if(S.currency === 'INR'){
+      if(v >= 1e7)  return sign + sym + trimNum(v/1e7) + ' Cr';
+      if(v >= 1e5)  return sign + sym + trimNum(v/1e5) + ' L';
+      if(v >= 1e3)  return sign + sym + trimNum(v/1e3) + 'K';
+    } else {
+      if(v >= 1e9)  return sign + sym + trimNum(v/1e9) + 'B';
+      if(v >= 1e6)  return sign + sym + trimNum(v/1e6) + 'M';
+      if(v >= 1e3)  return sign + sym + trimNum(v/1e3) + 'K';
+    }
+  }
+  return sign + sym + Math.round(v).toLocaleString(S.currency === 'INR' ? 'en-IN' : 'en-US');
+}
+const el = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if(cls) n.className = cls;
+  if(text != null) n.textContent = text;
+  return n;
+};
+
+/* ------------------------------------------------------------------ engine glue */
+// The engine always works in per-month amounts; this normalises whichever
+// entry mode/period the user chose.
+function engineExpenses(){
+  const perMonth = v => (Number(v) || 0) / (S.expensePeriod === 'yearly' ? 12 : 1);
+  if(S.expenseMode === 'simple'){
+    const total = perMonth(S.simpleExpense);
+    const ess = Math.min(100, Math.max(0, Number(S.essentialShare) || 0)) / 100;
+    return [
+      { monthly: total * ess,       essential: true,  infCat: 'general' },
+      { monthly: total * (1 - ess), essential: false, infCat: 'general' }
+    ];
+  }
+  return S.expenses.map(e => ({ monthly: perMonth(e.monthly), essential: !!e.essential, infCat: e.infCat }));
+}
+
+function engineCfg(overrides){
+  const num = v => Number(v) || 0;
+  return Object.assign({
+    currentAge: num(S.you.currentAge), fireAge: num(S.you.fireAge),
+    lifeExpectancy: num(S.asm.lifeExpectancy) || 90,
+    corpus: num(S.you.corpus),
+    fireType: S.fireType,
+    coastRetAge: num(S.you.coastRetAge), baristaUntil: num(S.you.baristaUntil),
+    baristaIncomeMonthly: num(S.you.baristaIncome),
+    plannedSip: num(S.you.plannedSip),
+    rates: {
+      inflation:num(S.asm.inflation), eduInflation:num(S.asm.eduInflation), healthInflation:num(S.asm.healthInflation),
+      preReturn:num(S.asm.preReturn), postReturn:num(S.asm.postReturn), swr:num(S.asm.swr), stepUp:num(S.asm.stepUp)
+    },
+    expenses: engineExpenses(),
+    goals: S.goals.map(g => ({ name:g.name, cost:num(g.cost), atAge:num(g.atAge), years:num(g.years)||1, infCat:g.infCat }))
+  }, overrides || {});
+}
+const monthlyExpenseTotal = () => engineExpenses().reduce((t,e) => t + e.monthly, 0);
+
+/* ------------------------------------------------------------------ shell */
+const $main = document.getElementById('main');
+const $nav = document.getElementById('stepsNav');
+
+function go(step){
+  S.step = step;
+  S.maxStep = Math.max(S.maxStep, step);
+  save();
+  render();
+  window.scrollTo({top:0, behavior:'instant'});
+}
+
+function renderNav(){
+  $nav.replaceChildren();
+  STEPS.forEach((name, i) => {
+    const n = i+1;
+    const b = el('button');
+    b.type = 'button';
+    b.append(el('span','n', n === S.step ? String(n) : (n < S.maxStep || n < S.step ? '✓' : String(n))), el('span', null, name));
+    if(n === S.step) b.classList.add('active');
+    else if(n <= S.maxStep) b.classList.add('done');
+    b.disabled = n > S.maxStep;
+    b.addEventListener('click', () => { if(n <= S.maxStep) go(n); });
+    $nav.append(b);
+  });
+}
+
+function actionsBar(backStep, nextLabel, onNext){
+  const bar = el('div','actions');
+  const back = el('button','back-btn','← Back');
+  back.type = 'button';
+  if(backStep){ back.addEventListener('click', () => go(backStep)); } else { back.style.visibility = 'hidden'; }
+  const next = el('button','primary-btn', nextLabel);
+  next.type = 'button';
+  next.addEventListener('click', onNext);
+  bar.append(back, next);
+  return bar;
+}
+
+function render(){
+  renderNav();
+  $main.replaceChildren();
+  ({1:step1, 2:step2, 3:step3, 4:step4, 5:step5})[S.step]();
+}
+
+/* ------------------------------------------------------------------ step 1: FIRE type */
+function step1(){
+  const card = el('section','card');
+  card.append(el('h2', null, 'Which flavour of FIRE are you chasing?'),
+    el('p','lead','They all mean the same thing — enough invested that work becomes optional — but the target differs.'));
+
+  const grid = el('div','type-grid');
+  FIRE_TYPES.forEach(t => {
+    const b = el('button','type-card' + (S.fireType === t.id ? ' sel' : ''));
+    b.type = 'button';
+    const title = el('div','t');
+    title.append(el('span',null,t.emoji + ' ' + t.name), el('span','tag',t.tag));
+    b.append(title, el('div','d',t.desc));
+    b.addEventListener('click', () => { S.fireType = t.id; save(); render(); });
+    grid.append(b);
+  });
+  card.append(grid);
+
+  const curWrap = el('div');
+  curWrap.style.marginTop = '18px';
+  curWrap.style.maxWidth = '260px';
+  const curLbl = el('label','fld','Currency');
+  const sel = el('select');
+  Object.keys(CURRENCIES).forEach(c => {
+    const o = el('option', null, CURRENCIES[c].label); o.value = c;
+    if(c === S.currency) o.selected = true;
+    sel.append(o);
+  });
+  sel.addEventListener('change', () => {
+    S.currency = sel.value;
+    // refresh defaults the user hasn't personally edited
+    const d = CURRENCIES[S.currency].defaults;
+    Object.keys(d).forEach(k => { if(!S.touched[k]) S.asm[k] = d[k]; });
+    save();
+  });
+  curLbl.append(sel);
+  curWrap.append(curLbl, el('div','hint','Sets sensible defaults for inflation and returns — you can change every one of them in step 3.'));
+  card.append(curWrap);
+
+  card.append(actionsBar(null, 'Next: your expenses →', () => go(2)));
+  $main.append(card);
+}
+
+/* ------------------------------------------------------------------ step 2: expenses */
+function seg(options, value, onChange){
+  const w = el('div','seg');
+  options.forEach(([v, l]) => {
+    const b = el('button', v === value ? 'on' : null, l);
+    b.type = 'button';
+    b.addEventListener('click', () => { if(v !== value) onChange(v); });
+    w.append(b);
+  });
+  return w;
+}
+
+function setExpensePeriod(p){
+  if(p === S.expensePeriod) return;
+  const f = p === 'yearly' ? 12 : 1/12;
+  const conv = v => (v === '' || v == null) ? v : Math.round((Number(v) || 0) * f);
+  S.expenses.forEach(e => { e.monthly = conv(e.monthly); });
+  S.simpleExpense = conv(S.simpleExpense);
+  S.expensePeriod = p;
+  save(); render();
+}
+
+function step2(){
+  const yearly = S.expensePeriod === 'yearly';
+  const perF = yearly ? 12 : 1;
+  const ph = CURRENCIES[S.currency].placeholders;
+  const sym = CURRENCIES[S.currency].symbol;
+  const perLabel = yearly ? ' / year' : ' / month';
+
+  const card = el('section','card');
+  card.append(el('h2',null,'What does your life cost today?'),
+    el('p','lead','Everything in today’s money — the calculator does the inflating. One number is enough; break it down only if you want per-category inflation and finer Lean/Fat control.'));
+
+  const modeRow = el('div','mode-row');
+  modeRow.append(
+    seg([['simple','One number'],['detailed','Break it down']], S.expenseMode, v => { S.expenseMode = v; save(); render(); }),
+    seg([['monthly','per month'],['yearly','per year']], S.expensePeriod, setExpensePeriod)
+  );
+  card.append(modeRow);
+
+  const totalNodes = () => {
+    const m = monthlyExpenseTotal();
+    return [
+      el('span',null,'Monthly: '), el('b',null,fmtMoney(m, {full:m < 1e5})),
+      el('span',null,'· Yearly: '), el('b',null,fmtMoney(m*12))
+    ];
+  };
+  const totals = el('div','totals');
+
+  if(S.expenseMode === 'simple'){
+    const row = el('div','row');
+    const totLbl = el('label','fld','Total spending (' + sym + perLabel + ', today’s money)');
+    const tot = el('input'); tot.type='number'; tot.min='0'; tot.value = S.simpleExpense;
+    tot.placeholder = 'e.g. ' + (ph.housing + ph.groceries + ph.utilities + ph.transport + ph.healthcare + ph.dining + ph.travel + ph.misc) * perF;
+    tot.addEventListener('input', () => { S.simpleExpense = tot.value; totals.replaceChildren(...totalNodes()); save(); });
+    totLbl.append(tot);
+    const essLbl = el('label','fld','Roughly what share of it is essential? (%)');
+    const ess = el('input'); ess.type='number'; ess.min='0'; ess.max='100'; ess.step='5'; ess.value = S.essentialShare;
+    ess.addEventListener('input', () => { S.essentialShare = ess.value; save(); });
+    essLbl.append(ess);
+    row.append(totLbl, essLbl);
+    card.append(row);
+    card.append(el('p','hint','The essential share only matters for Lean/Fat FIRE — essentials are never scaled, discretionary is. In this mode everything inflates at general inflation; use “Break it down” if healthcare or education is a big slice of your spending.'));
+  } else {
+    const list = el('div');
+    const head = el('div','exp-row exp-head');
+    head.append(el('span',null,'Expense'), el('span',null,sym + perLabel), el('span',null,'Essential'), el('span',null,'Inflates at'), el('span',null,''));
+    list.append(head);
+
+    S.expenses.forEach(e => {
+      const row = el('div','exp-row');
+      const name = el('input'); name.type = 'text'; name.value = e.name; name.setAttribute('aria-label','Expense name');
+      name.addEventListener('input', () => { e.name = name.value; save(); });
+      const amt = el('input'); amt.type = 'number'; amt.min = '0'; amt.value = e.monthly;
+      amt.placeholder = e.phKey && ph[e.phKey] ? 'e.g. ' + ph[e.phKey] * perF : '0';
+      amt.setAttribute('aria-label','Amount' + perLabel);
+      amt.addEventListener('input', () => { e.monthly = amt.value; totals.replaceChildren(...totalNodes()); save(); });
+      const ess = el('label','ess');
+      const chk = el('input'); chk.type = 'checkbox'; chk.checked = !!e.essential;
+      chk.addEventListener('change', () => { e.essential = chk.checked; save(); });
+      ess.append(chk, el('span',null,'essential'));
+      const inf = infSelect(e.infCat, v => { e.infCat = v; save(); });
+      const del = el('button','del-btn','✕'); del.type='button'; del.title = 'Remove';
+      del.addEventListener('click', () => { S.expenses = S.expenses.filter(x => x !== e); save(); render(); });
+      row.append(name, amt, ess, inf, del);
+      list.append(row);
+    });
+    card.append(list);
+
+    const addBtn = el('button','ghost-btn','+ Add another expense');
+    addBtn.type='button'; addBtn.style.marginTop = '12px';
+    addBtn.addEventListener('click', () => {
+      S.expenses.push({ id:nid(), phKey:null, name:'', monthly:'', essential:false, infCat:'general' });
+      save(); render();
+    });
+    card.append(addBtn);
+    card.append(el('p','hint','Mark what’s essential: Lean FIRE halves discretionary spending in retirement, Fat FIRE gives it a 1.5× cushion.'));
+  }
+
+  totals.append(...totalNodes());
+  card.append(totals);
+  $main.append(card);
+
+  /* one-time goals */
+  const gcard = el('section','card');
+  gcard.append(el('h2',null,'Big one-time expenses along the way'),
+    el('p','lead','House down payment, kids’ college, weddings, sabbaticals — enter today’s cost and when it happens; each is inflated to its year and paid straight from your portfolio.'));
+
+  const chips = el('div','chips');
+  CURRENCIES[S.currency].goalPresets.forEach(p => {
+    const b = el('button', null, '+ ' + p.name + ' (' + fmtMoney(p.cost) + ')');
+    b.type='button';
+    b.addEventListener('click', () => {
+      S.goals.push({ id:nid(), name:p.name, cost:p.cost, atAge:(Number(S.you.currentAge)||30) + p.inYears, years:p.years, infCat:p.infCat });
+      save(); render();
+    });
+    chips.append(b);
+  });
+  const custom = el('button',null,'+ Add your own');
+  custom.type='button';
+  custom.addEventListener('click', () => {
+    S.goals.push({ id:nid(), name:'', cost:'', atAge:(Number(S.you.currentAge)||30) + 5, years:1, infCat:'general' });
+    save(); render();
+  });
+  chips.append(custom);
+  gcard.append(chips);
+
+  if(S.goals.length){
+    const ghead = el('div','goal-row exp-head');
+    ghead.append(el('span',null,'Goal'), el('span',null,'Cost today'), el('span',null,'At age'), el('span',null,'Over yrs'), el('span',null,'Inflates at'), el('span',null,''));
+    gcard.append(ghead);
+    S.goals.forEach(g => {
+      const row = el('div','goal-row');
+      const name = el('input'); name.type='text'; name.value = g.name; name.placeholder = 'Goal name'; name.setAttribute('aria-label','Goal name');
+      name.addEventListener('input', () => { g.name = name.value; save(); });
+      const cost = el('input'); cost.type='number'; cost.min='0'; cost.value = g.cost; cost.setAttribute('aria-label','Cost today');
+      cost.addEventListener('input', () => { g.cost = cost.value; save(); });
+      const age = el('input'); age.type='number'; age.min='0'; age.max='110'; age.value = g.atAge; age.className='ga'; age.setAttribute('aria-label','At age');
+      age.addEventListener('input', () => { g.atAge = Number(age.value)||0; save(); });
+      const yrs = el('input'); yrs.type='number'; yrs.min='1'; yrs.max='15'; yrs.value = g.years; yrs.className='gy'; yrs.title='Spread over this many years (e.g. a 4-year degree)'; yrs.setAttribute('aria-label','Spread over years');
+      yrs.addEventListener('input', () => { g.years = Number(yrs.value)||1; save(); });
+      const inf = infSelect(g.infCat, v => { g.infCat = v; save(); });
+      const del = el('button','del-btn','✕'); del.type='button'; del.title='Remove';
+      del.addEventListener('click', () => { S.goals = S.goals.filter(x => x !== g); save(); render(); });
+      row.append(name, cost, age, yrs, inf, del);
+      gcard.append(row);
+    });
+  } else {
+    gcard.append(el('p','hint','None yet — add the ones that apply. You can also skip this entirely.'));
+  }
+
+  const err = el('p','err', S.expenseMode === 'simple'
+    ? 'Enter your total spending — the whole plan hangs off what your life costs.'
+    : 'Enter at least one expense — the whole plan hangs off what your life costs.');
+  gcard.append(err);
+  gcard.append(actionsBar(1, 'Next: check the assumptions →', () => {
+    if(monthlyExpenseTotal() <= 0){ err.classList.add('show'); return; }
+    go(3);
+  }));
+  $main.append(gcard);
+}
+
+function infSelect(value, onChange){
+  const sel = el('select');
+  sel.setAttribute('aria-label','Inflation category');
+  [['general','General inflation'],['healthcare','Healthcare'],['education','Education']].forEach(([v,l]) => {
+    const o = el('option',null,l); o.value = v; if(v === value) o.selected = true; sel.append(o);
+  });
+  sel.addEventListener('change', () => onChange(sel.value));
+  return sel;
+}
+
+/* ------------------------------------------------------------------ step 3: assumptions */
+function step3(){
+  const cur = CURRENCIES[S.currency];
+  const card = el('section','card');
+  card.append(el('h2',null,'The assumptions — check our homework'),
+    el('p','lead','Every estimate below drives your number. These are educated defaults for ' + cur.label +
+      ', with the reasoning shown. Change anything; changed values are highlighted and can be reset.'));
+
+  ASSUMPTION_FIELDS.forEach(f => {
+    const def = f.global ? f.def : cur.defaults[f.key];
+    const why = f.global ? f.why : cur.why[f.key];
+    const row = el('div','asm-row' + (S.touched[f.key] ? ' touched' : ''));
+    row.append(el('div','lbl', f.label + (f.unit ? ' (' + f.unit + ')' : '')));
+    const inp = el('input'); inp.type='number'; inp.min=f.min; inp.max=f.max; inp.step=f.step;
+    inp.value = S.asm[f.key];
+    inp.setAttribute('aria-label', f.label);
+    inp.addEventListener('input', () => {
+      S.asm[f.key] = Number(inp.value);
+      S.touched[f.key] = true;
+      row.classList.add('touched');
+      save();
+    });
+    row.append(inp);
+    const whyDiv = el('div','why');
+    whyDiv.append(el('span','def','Default ' + def + (f.unit ? f.unit.replace(' / yr','/yr') : '') + ' — '), el('span',null,why));
+    row.append(whyDiv);
+    const rst = el('button','reset-one','reset');
+    rst.type='button';
+    rst.addEventListener('click', () => {
+      S.asm[f.key] = def; delete S.touched[f.key]; save(); render();
+    });
+    row.append(rst);
+    card.append(row);
+  });
+
+  const resetAll = el('button','ghost-btn','Reset all to defaults');
+  resetAll.type='button'; resetAll.style.marginTop='14px';
+  resetAll.addEventListener('click', () => {
+    S.asm = Object.assign({ lifeExpectancy:90 }, cur.defaults);
+    S.touched = {}; save(); render();
+  });
+  card.append(resetAll);
+
+  card.append(el('p','hint','Everything is in nominal terms (actual future prices), and returns are modelled as smooth averages. The safe withdrawal rate is used only as a rule-of-thumb cross-check next to the main simulation.'));
+  card.append(actionsBar(2, 'Next: when do you want out? →', () => go(4)));
+  $main.append(card);
+}
+
+/* ------------------------------------------------------------------ step 4: timeline */
+function step4(){
+  const cur = CURRENCIES[S.currency];
+  const card = el('section','card');
+  const t = FIRE_TYPES.find(x => x.id === S.fireType);
+  card.append(el('h2',null,'When, and from where?'),
+    el('p','lead','Your ' + t.name + ' timeline. ' + (
+      S.fireType === 'coast' ? 'For Coast FIRE, the age below is when you stop investing — not when you stop working.' :
+      S.fireType === 'barista' ? 'For Barista FIRE, the age below is when you drop to part-time.' :
+      'The age below is when work becomes optional.')));
+
+  const mk = (label, key, opts) => {
+    const w = el('label','fld', label);
+    const i = el('input'); i.type='number';
+    Object.assign(i, opts || {});
+    i.value = S.you[key];
+    if(opts && opts.placeholder) i.placeholder = opts.placeholder;
+    i.addEventListener('input', () => { S.you[key] = i.value === '' ? '' : Number(i.value); save(); });
+    w.append(i);
+    return w;
+  };
+
+  const r1 = el('div','row');
+  r1.append(
+    mk('Your age now', 'currentAge', {min:15, max:80}),
+    mk(S.fireType === 'coast' ? 'Stop investing at age (coast age)' : S.fireType === 'barista' ? 'Go part-time at age' : 'FIRE at age', 'fireAge', {min:16, max:90})
+  );
+  card.append(r1);
+
+  if(S.fireType === 'coast'){
+    const r = el('div','row'); r.style.marginTop='14px';
+    r.append(mk('Fully retire at age (job covers bills until then)', 'coastRetAge', {min:35, max:80}));
+    card.append(r);
+  }
+  if(S.fireType === 'barista'){
+    const r = el('div','row'); r.style.marginTop='14px';
+    r.append(
+      mk('Part-time income per month (today’s money)', 'baristaIncome', {min:0, placeholder:'e.g. ' + cur.baristaPlaceholder}),
+      mk('Work part-time until age', 'baristaUntil', {min:30, max:80})
+    );
+    card.append(r);
+  }
+
+  const r2 = el('div','row'); r2.style.marginTop='14px';
+  r2.append(
+    mk('Already invested (all investments today)', 'corpus', {min:0, placeholder:'0'}),
+    mk('You currently invest per month (optional — for feedback)', 'plannedSip', {min:0, placeholder:'optional'})
+  );
+  card.append(r2);
+
+  const err = el('p','err','');
+  card.append(err);
+  card.append(actionsBar(3, 'Show my plan →', () => {
+    const y = S.you;
+    const life = Number(S.asm.lifeExpectancy) || 90;
+    const fail = msg => { err.textContent = msg; err.classList.add('show'); };
+    if(!(y.currentAge >= 15 && y.currentAge <= 80)) return fail('Your current age should be between 15 and 80.');
+    if(!(y.fireAge > y.currentAge)) return fail('Your FIRE age must be after your current age.');
+    if(!(y.fireAge < life)) return fail('Your FIRE age must be before your plan-until age (' + life + ', editable in step 3).');
+    if(S.fireType === 'coast' && y.coastRetAge < y.fireAge) return fail('Full retirement age must be at or after your coast age.');
+    if(S.fireType === 'barista' && y.baristaUntil < y.fireAge) return fail('The part-time-until age must be at or after your semi-retirement age.');
+    go(5);
+  }));
+  $main.append(card);
+}
+
+/* ------------------------------------------------------------------ step 5: results */
+function step5(){
+  const plan = FireEngine.buildPlan(engineCfg());
+  const t = FIRE_TYPES.find(x => x.id === S.fireType);
+  const you = S.you;
+  const fireYear = THIS_YEAR + plan.yearsToFire;
+  const roundSip = v => Math.ceil(v / (S.currency === 'INR' ? 500 : 50)) * (S.currency === 'INR' ? 500 : 50);
+
+  /* hero */
+  const hero = el('section','card hero-card');
+  if(!isFinite(plan.sipFlat)){
+    hero.append(el('h2',null,'That plan doesn’t close ❌'),
+      el('p','lead','Even absurdly large investing can’t fund it under these assumptions. Push the FIRE age later, trim expenses, or revisit the assumptions.'));
+  } else if(plan.alreadyThere){
+    hero.append(el('div','hero-label','To ' + t.name.toLowerCase().replace(' fire',' FIRE') + ' at ' + you.fireAge + ', you need to invest'),
+      el('div','hero-num','Nothing 🎉'),
+      el('div','hero-sub','Your existing ' + fmtMoney(Number(you.corpus)||0) + ' already compounds past the requirement. Verify the assumptions below — then maybe update your notice period.'));
+  } else {
+    hero.append(el('div','hero-label', t.emoji + ' To ' + (S.fireType==='coast' ? 'coast from' : S.fireType==='barista' ? 'semi-retire at' : 'retire at') + ' age ' + you.fireAge + ', invest about'),
+      el('div','hero-num', fmtMoney(roundSip(plan.sipFlat), {full:true}) + ' / month'));
+    const subs = [];
+    if(plan.stepUpPct > 0 && isFinite(plan.sipStepped) && plan.sipStepped < plan.sipFlat){
+      subs.push('Or start at ' + fmtMoney(roundSip(plan.sipStepped), {full:true}) + '/month and raise it ' + plan.stepUpPct + '% every year.');
+    }
+    if(S.fireType === 'coast') subs.push('Then stop investing at ' + you.fireAge + ' and let compounding carry you to ' + plan.retireAge + '.');
+    if(S.fireType === 'barista') subs.push('Assumes ' + fmtMoney(Number(you.baristaIncome)||0) + '/month of part-time income (today’s money) until age ' + you.baristaUntil + '.');
+    hero.append(el('div','hero-sub', subs.join(' ')));
+  }
+  $main.append(hero);
+
+  /* verdict on planned SIP */
+  if(plan.planned){
+    const p = plan.planned;
+    const v = el('div','verdict ' + (p.ok ? 'good' : 'bad'));
+    if(p.ok){
+      v.append(el('span','ic','✓'), el('span',null,
+        'On track: your current ' + fmtMoney(p.sip, {full:true}) + '/month is enough' +
+        (p.achievableAge && p.achievableAge < you.fireAge ? ' — in fact you could FIRE as early as age ' + p.achievableAge + '.' : '.')));
+    } else {
+      v.append(el('span','ic','▲'), el('span',null,
+        'Shortfall: at your current ' + fmtMoney(p.sip, {full:true}) + '/month you’d need roughly ' + fmtMoney(roundSip(p.gap), {full:true}) + ' more each month' +
+        (p.achievableAge ? ' — or keep the amount and move FIRE to age ' + p.achievableAge + '.' : '.')));
+    }
+    $main.append(v);
+  }
+
+  /* tiles */
+  if(isFinite(plan.sipFlat)){
+    const tiles = el('div','tiles');
+    const tile = (l, v, s) => { const d = el('div','tile'); d.append(el('div','l',l), el('div','v',v)); if(s) d.append(el('div','s',s)); return d; };
+    tiles.append(
+      tile('Corpus needed at ' + (S.fireType==='coast' ? you.fireAge + ' (coast number)' : 'age ' + you.fireAge),
+        fmtMoney(plan.requiredCorpus), '≈ ' + fmtMoney(plan.requiredCorpusToday) + ' in today’s money'),
+      tile('Yearly spending at ' + plan.retireAge, fmtMoney(plan.annualExpenseAtRetire),
+        fmtMoney(plan.annualExpenseToday) + '/yr today, inflated'),
+      tile('Runway', plan.yearsToFire + ' years', 'age ' + you.currentAge + ' → ' + you.fireAge + ' (' + fireYear + ')'),
+      tile('Rule-of-thumb cross-check', fmtMoney(plan.swrCorpus),
+        'spending ÷ ' + S.asm.swr + '% SWR — ' + crossCheckNote(plan))
+    );
+    $main.append(tiles);
+  }
+
+  /* chart */
+  if(plan.series.length){
+    const cc = el('section','card chart-card');
+    cc.append(el('h3',null,'Your portfolio, year by year'),
+      el('div','csub','Projection if you invest the required ' + (plan.alreadyThere ? 'nothing extra' : fmtMoney(roundSip(plan.sipFlat), {full:true}) + '/month (flat)') + ' — hover or use arrow keys to inspect any year.'));
+    cc.append(buildChart(plan));
+    $main.append(cc);
+  }
+
+  /* year table */
+  if(plan.series.length){
+    const d = el('details','panel');
+    d.append(el('summary',null,'Year-by-year table'));
+    const box = el('div');
+    const scroll = el('div','tbl-scroll');
+    const tbl = el('table','yr');
+    const thead = el('thead'); const hr = el('tr');
+    ['Age','Year','Phase','You invest','Goals paid','You withdraw','Portfolio at year end'].forEach(h => hr.append(el('th',null,h)));
+    thead.append(hr); tbl.append(thead);
+    const tb = el('tbody');
+    const phaseLabel = { accumulate:'Accumulating', coast:'Coasting', barista:'Part-time', retire:'Retired' };
+    plan.series.forEach(r => {
+      const tr = el('tr');
+      [String(r.age), String(THIS_YEAR + (r.age - you.currentAge)), phaseLabel[r.phase],
+       r.contrib ? fmtMoney(r.contrib) : '—', r.goalOut ? fmtMoney(r.goalOut) : '—',
+       r.withdrawal ? fmtMoney(r.withdrawal) : '—', fmtMoney(r.end)
+      ].forEach(v => tr.append(el('td',null,v)));
+      tb.append(tr);
+    });
+    tbl.append(tb); scroll.append(tbl); box.append(scroll); d.append(box);
+    $main.append(d);
+  }
+
+  /* methodology */
+  $main.append(buildMethodology(plan));
+
+  const bar = el('div','actions');
+  const back = el('button','back-btn','← Adjust inputs'); back.type='button';
+  back.addEventListener('click', () => go(4));
+  const asmBtn = el('button','ghost-btn','Edit assumptions'); asmBtn.type='button';
+  asmBtn.addEventListener('click', () => go(3));
+  bar.append(back, asmBtn);
+  $main.append(bar);
+}
+
+function crossCheckNote(plan){
+  const diff = (plan.swrCorpus - plan.requiredCorpus) / plan.requiredCorpus;
+  const pct = Math.abs(Math.round(diff * 100));
+  if(pct <= 5) return 'agrees with the simulation';
+  return (diff > 0 ? pct + '% above' : pct + '% below') + ' the simulation';
+}
+
+function buildMethodology(plan){
+  const d = el('details','panel');
+  d.append(el('summary',null,'How this was calculated — the full working'));
+  const box = el('div','meth');
+  const you = S.you;
+  const cur = CURRENCIES[S.currency];
+  const p = (strongText, rest) => { const q = el('p'); q.append(el('b',null,strongText), document.createTextNode(' ' + rest)); return q; };
+  const dm = FireEngine.DISCRETIONARY_MULT[S.fireType];
+  const exps = engineExpenses();
+  const essential = exps.filter(e => e.essential).reduce((t,e) => t + e.monthly, 0);
+  const disc = exps.filter(e => !e.essential).reduce((t,e) => t + e.monthly, 0);
+  const src = S.expenseMode === 'simple'
+    ? ' (from your single total, treating ' + (Number(S.essentialShare)||0) + '% as essential)'
+    : '';
+
+  box.append(p('1 · Your spending.', 'Today you spend ' + fmtMoney(monthlyExpenseTotal(), {full:true}) + '/month — ' +
+    fmtMoney(essential, {full:true}) + ' essential + ' + fmtMoney(disc, {full:true}) + ' discretionary' + src +
+    (dm !== 1 ? ('. As ' + S.fireType + ' FIRE, discretionary is scaled ×' + dm + ' in retirement, giving ' + fmtMoney(plan.annualExpenseToday) + '/yr in today’s money.') :
+      (', i.e. ' + fmtMoney(plan.annualExpenseToday) + '/yr.'))));
+  box.append(p('2 · Inflation.', (S.expenseMode === 'simple'
+    ? 'Your spending grows at general inflation, ' + S.asm.inflation + '% per year (goals can still use education/healthcare rates below).'
+    : 'Each category grows at its own rate — general ' + S.asm.inflation + '%, healthcare ' + S.asm.healthInflation + '%, education ' + S.asm.eduInflation + '% per year.') +
+    ' By age ' + plan.retireAge + ' (' + (THIS_YEAR + plan.retireAge - you.currentAge) + '), your spending becomes ' + fmtMoney(plan.annualExpenseAtRetire) + '/yr.'));
+  if(S.goals.length){
+    const ul = el('ul');
+    S.goals.forEach(g => {
+      const cost = Number(g.cost)||0;
+      if(cost <= 0) return;
+      const yrs = Math.max(1, Number(g.years)||1);
+      const rate = g.infCat === 'education' ? S.asm.eduInflation : g.infCat === 'healthcare' ? S.asm.healthInflation : S.asm.inflation;
+      const li = el('li');
+      if(g.atAge < you.currentAge){
+        li.textContent = (g.name || 'Goal') + ' — set at age ' + g.atAge + ', which is in the past, so it’s ignored.';
+      } else {
+        const infl = cost * Math.pow(1 + rate/100, g.atAge - you.currentAge);
+        li.textContent = (g.name || 'Goal') + ': ' + fmtMoney(cost) + ' today → ≈ ' + fmtMoney(infl) + ' at age ' + g.atAge +
+          (yrs > 1 ? ' (spread over ' + yrs + ' years)' : '') + ', at ' + rate + '%/yr.';
+      }
+      ul.append(li);
+    });
+    box.append(p('3 · Your goals.', 'Each one-time goal is inflated to the year it happens and paid straight from the portfolio:'));
+    box.append(ul);
+  } else {
+    box.append(p('3 · Your goals.', 'None entered — only regular living costs are funded.'));
+  }
+  box.append(p((S.goals.length ? '4' : '4') + ' · The corpus.', 'We add up the present value (at your ' + S.asm.postReturn + '% post-FIRE return) of every year of spending from ' + (S.fireType==='coast' ? 'age ' + plan.retireAge : 'age ' + you.fireAge) + ' to ' + S.asm.lifeExpectancy + ', plus any goals — that’s ' + fmtMoney(plan.requiredCorpus) + ' needed at age ' + you.fireAge + '. The popular shortcut (yearly spending ÷ ' + S.asm.swr + '% SWR = ' + fmtMoney(plan.swrCorpus) + ') is shown as a cross-check.'));
+  box.append(p('5 · The monthly number.', 'Starting from your ' + fmtMoney(Number(you.corpus)||0) + ' already invested, growing at ' + S.asm.preReturn + '%/yr before FIRE and ' + S.asm.postReturn + '%/yr after, we find the smallest monthly investment that keeps your balance above zero every single year to age ' + S.asm.lifeExpectancy + ' — including through every goal. ' + (isFinite(plan.sipFlat) ? 'That’s ' + fmtMoney(plan.sipFlat, {full:true}) + '/month exactly (headline rounded up).' : 'No finite amount worked.')));
+  box.append(p('6 · What’s deliberately left out.', 'Taxes on withdrawals and rebalancing, investment fees, windfalls and inheritances, and market volatility (returns are smooth averages — consider your number a floor, not a ceiling). Currency defaults for ' + cur.label + ' are documented in step 3, where every value can be changed.'));
+  const editRow = el('p');
+  const btn = el('button','ghost-btn','Change the assumptions'); btn.type='button';
+  btn.addEventListener('click', () => go(3));
+  editRow.append(btn);
+  box.append(editRow);
+  d.append(box);
+  return d;
+}
+
+/* ------------------------------------------------------------------ chart */
+function buildChart(plan){
+  const rows = plan.series;
+  const you = S.you;
+  const W = 880, H = 360, ML = 66, MR = 18, MT = 18, MB = 40;
+  const iw = W - ML - MR, ih = H - MT - MB;
+  const ns = 'http://www.w3.org/2000/svg';
+  const sv = (tag, attrs) => {
+    const n = document.createElementNS(ns, tag);
+    for(const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  };
+
+  const ages = rows.map(r => r.age);
+  const a0 = ages[0], a1 = ages[ages.length-1] + 1;
+  const maxV = Math.max.apply(null, rows.map(r => r.end).concat(rows.map(r => r.start), [1]));
+  const yMax = niceCeil(maxV * 1.06);
+  const x = age => ML + (age - a0) / (a1 - a0) * iw;
+  const y = v => MT + ih - Math.max(0, v) / yMax * ih;
+
+  const svg = sv('svg', { viewBox:'0 0 ' + W + ' ' + H, role:'img',
+    'aria-label':'Projected portfolio value from age ' + a0 + ' to ' + (a1-1) });
+
+  /* gridlines + y ticks */
+  const ticks = 4;
+  for(let i = 0; i <= ticks; i++){
+    const v = yMax * i / ticks;
+    const yy = y(v);
+    svg.append(sv('line', { x1:ML, x2:W-MR, y1:yy, y2:yy, stroke:'var(--grid)', 'stroke-width':1 }));
+    const t = sv('text', { x:ML-8, y:yy+4, 'text-anchor':'end', 'font-size':11, fill:'var(--muted)' });
+    t.textContent = fmtMoney(v);
+    t.style.fontVariantNumeric = 'tabular-nums';
+    svg.append(t);
+  }
+  /* x ticks: ages divisible by 5 */
+  for(let a = Math.ceil(a0/5)*5; a <= a1-1; a += 5){
+    const t = sv('text', { x:x(a), y:H-MB+18, 'text-anchor':'middle', 'font-size':11, fill:'var(--muted)' });
+    t.textContent = a;
+    svg.append(t);
+  }
+  const axisLbl = sv('text', { x:W-MR, y:H-MB+18, 'text-anchor':'end', 'font-size':10.5, fill:'var(--muted)' });
+  axisLbl.textContent = 'age';
+  svg.append(axisLbl);
+  /* baseline */
+  svg.append(sv('line', { x1:ML, x2:W-MR, y1:y(0), y2:y(0), stroke:'var(--axis)', 'stroke-width':1 }));
+
+  /* area + line through year-end values */
+  const pts = rows.map(r => [x(r.age + 1), y(r.end)]);
+  pts.unshift([x(a0), y(rows[0].start)]);
+  const line = pts.map((p,i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  svg.append(sv('path', { d: line + ' L' + x(a1).toFixed(1) + ' ' + y(0) + ' L' + x(a0).toFixed(1) + ' ' + y(0) + ' Z',
+    fill:'var(--series)', opacity:0.1, stroke:'none' }));
+  svg.append(sv('path', { d:line, fill:'none', stroke:'var(--series)', 'stroke-width':2, 'stroke-linejoin':'round', 'stroke-linecap':'round' }));
+
+  /* FIRE marker + label; coast adds a full-retirement marker */
+  const markers = [{ age: plan.fireAge, label:(S.fireType==='coast' ? 'Coast' : S.fireType==='barista' ? 'Part-time' : 'FIRE') + ' @ ' + plan.fireAge }];
+  if(S.fireType === 'coast') markers.push({ age: plan.retireAge, label:'Retire @ ' + plan.retireAge });
+  markers.forEach(m => {
+    const row = rows.find(r => r.age === m.age) || rows[rows.length-1];
+    const mx = x(m.age), my = y(row.start);
+    svg.append(sv('circle', { cx:mx, cy:my, r:6.5, fill:'var(--surface)' }));
+    svg.append(sv('circle', { cx:mx, cy:my, r:4.5, fill:'var(--series)' }));
+    const anchor = mx > W - 130 ? 'end' : 'start';
+    const lbl = sv('text', { x: mx + (anchor === 'end' ? -10 : 10), y: my - 10, 'text-anchor':anchor, 'font-size':12, 'font-weight':650, fill:'var(--ink)' });
+    lbl.textContent = m.label;
+    svg.append(lbl);
+  });
+
+  /* peak label (the one selective direct label) */
+  let peak = rows[0], peakIdx = 0;
+  rows.forEach((r,i) => { if(r.end > peak.end){ peak = r; peakIdx = i; } });
+  const px = x(peak.age + 1), py = y(peak.end);
+  const pk = sv('text', { x:Math.min(px, W-MR-4), y:Math.max(py-8, 12), 'text-anchor': px > W-120 ? 'end' : 'middle', 'font-size':11.5, fill:'var(--ink2)' });
+  pk.textContent = 'peak ' + fmtMoney(peak.end);
+  svg.append(pk);
+
+  /* crosshair */
+  const cross = sv('line', { x1:0, x2:0, y1:MT, y2:H-MB, stroke:'var(--axis)', 'stroke-width':1, visibility:'hidden' });
+  svg.append(cross);
+  const dot = sv('circle', { r:5, fill:'var(--series)', stroke:'var(--surface)', 'stroke-width':2, visibility:'hidden' });
+  svg.append(dot);
+
+  const box = el('div','chart-box');
+  box.tabIndex = 0;
+  box.setAttribute('aria-label','Interactive chart: use left and right arrow keys to read values year by year');
+  box.append(svg);
+  const tip = el('div','tip');
+  box.append(tip);
+
+  const phaseLabel = { accumulate:'Accumulating', coast:'Coasting', barista:'Part-time', retire:'Retired' };
+  let idx = -1;
+  function show(i){
+    idx = Math.max(0, Math.min(rows.length-1, i));
+    const r = rows[idx];
+    const cx = x(r.age + 1);
+    cross.setAttribute('x1', cx); cross.setAttribute('x2', cx);
+    cross.setAttribute('visibility','visible');
+    dot.setAttribute('cx', cx); dot.setAttribute('cy', y(r.end));
+    dot.setAttribute('visibility','visible');
+
+    tip.replaceChildren();
+    tip.append(el('div','tl','Age ' + (r.age+1) + ' · ' + (THIS_YEAR + (r.age+1) - you.currentAge) + ' · ' + phaseLabel[r.phase]));
+    tip.append(el('div','tv', fmtMoney(r.end)));
+    const addRow = (l,v) => { const rw = el('div','tr'); rw.append(el('span',null,l), el('b',null,v)); tip.append(rw); };
+    if(r.contrib) addRow('invested', fmtMoney(r.contrib));
+    if(r.withdrawal) addRow('withdrew', fmtMoney(r.withdrawal));
+    if(r.goalOut) addRow('goals paid', fmtMoney(r.goalOut));
+    tip.style.display = 'block';
+    const rect = box.getBoundingClientRect();
+    const sx = rect.width / W;
+    let left = cx * sx + 12;
+    if(left + tip.offsetWidth > rect.width - 4) left = cx * sx - tip.offsetWidth - 12;
+    tip.style.left = Math.max(0, left) + 'px';
+    tip.style.top = Math.max(0, Math.min(y(r.end) * (rect.height / H) - tip.offsetHeight - 8, rect.height - tip.offsetHeight - 4)) + 'px';
+  }
+  function hide(){
+    cross.setAttribute('visibility','hidden');
+    dot.setAttribute('visibility','hidden');
+    tip.style.display = 'none';
+    idx = -1;
+  }
+  box.addEventListener('pointermove', ev => {
+    const rect = box.getBoundingClientRect();
+    const mx = (ev.clientX - rect.left) / rect.width * W;
+    const age = a0 + (mx - ML) / iw * (a1 - a0);
+    show(Math.round(age - a0) - 1);
+  });
+  box.addEventListener('pointerleave', hide);
+  box.addEventListener('keydown', ev => {
+    if(ev.key === 'ArrowRight'){ show(idx < 0 ? 0 : idx + 1); ev.preventDefault(); }
+    else if(ev.key === 'ArrowLeft'){ show(idx < 0 ? rows.length-1 : idx - 1); ev.preventDefault(); }
+    else if(ev.key === 'Escape'){ hide(); }
+  });
+  box.addEventListener('focus', () => { if(idx < 0) show(plan.fireAge - a0 - 1); });
+  box.addEventListener('blur', hide);
+  return box;
+}
+
+function niceCeil(v){
+  if(v <= 0) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const norm = v / mag;
+  const step = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+  return step * mag;
+}
+
+/* ------------------------------------------------------------------ header buttons */
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if(confirm('Clear everything and start over?')){
+    localStorage.removeItem(STORE_KEY);
+    S = freshState();
+    render();
+  }
+});
+document.getElementById('exampleBtn').addEventListener('click', loadExample);
+function loadExample(){
+  S = freshState();
+  S.fireType = 'regular'; S.currency = 'INR';
+  S.expenseMode = 'detailed'; S.expensePeriod = 'monthly';
+  const ph = CURRENCIES.INR.placeholders;
+  S.expenses.forEach(e => { if(e.phKey) e.monthly = ph[e.phKey]; });
+  S.goals = [
+    { id:nid(), name:"Child's higher education", cost:5000000, atAge:48, years:4, infCat:'education' },
+    { id:nid(), name:'Car', cost:1500000, atAge:36, years:1, infCat:'general' }
+  ];
+  S.you = { currentAge:30, fireAge:45, corpus:2000000, plannedSip:60000, coastRetAge:60, baristaUntil:60, baristaIncome:'' };
+  S.maxStep = 5; S.step = 5;
+  save(); render();
+}
+
+const themeBtn = document.getElementById('themeBtn');
+function applyTheme(t){
+  if(t) document.documentElement.setAttribute('data-theme', t);
+  else document.documentElement.removeAttribute('data-theme');
+}
+themeBtn.addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const sysDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const next = cur ? (cur === 'dark' ? 'light' : 'dark') : (sysDark ? 'light' : 'dark');
+  applyTheme(next);
+  try{ localStorage.setItem('firecalc-theme', next); }catch(e){}
+});
+try{ applyTheme(localStorage.getItem('firecalc-theme')); }catch(e){}
+
+/* ------------------------------------------------------------------ boot */
+load();
+const params = new URLSearchParams(location.search);
+if(params.get('example') === '1') loadExample();
+const jump = Number(params.get('step'));
+if(jump >= 1 && jump <= 5){ S.maxStep = Math.max(S.maxStep, jump); S.step = jump; }
+render();
+</script>
+</body>
+</html>
